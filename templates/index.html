@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GamingIQ — Academic Predictor</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0d0f14;
+    --surface:  #13161d;
+    --card:     #1a1e28;
+    --border:   rgba(255,255,255,0.07);
+    --accent:   #00e5a0;
+    --accent2:  #ff5c6a;
+    --accent3:  #5c8dff;
+    --text:     #eef0f6;
+    --muted:    #6b7280;
+    --font:     'Syne', sans-serif;
+    --mono:     'DM Mono', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.25rem 2.5rem;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(13,15,20,0.92);
+    backdrop-filter: blur(12px);
+  }
+  .logo { font-size: 1.2rem; font-weight: 800; letter-spacing: -0.02em; }
+  .logo span { color: var(--accent); }
+  .badge-model {
+    font-family: var(--mono); font-size: 11px;
+    background: rgba(0,229,160,0.1); color: var(--accent);
+    border: 1px solid rgba(0,229,160,0.25);
+    padding: 4px 12px; border-radius: 999px;
+  }
+
+  /* ── Layout ── */
+  main { max-width: 1280px; margin: 0 auto; padding: 2rem 2.5rem 4rem; }
+
+  h2 {
+    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 1rem;
+  }
+  h3 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.25rem; }
+
+  /* ── Metric cards top ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px; margin-bottom: 2rem;
+  }
+  .kpi {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
+    position: relative; overflow: hidden;
+  }
+  .kpi::before {
+    content: ''; position: absolute; top: 0; left: 0;
+    width: 3px; height: 100%; border-radius: 3px 0 0 3px;
+  }
+  .kpi.green::before  { background: var(--accent); }
+  .kpi.red::before    { background: var(--accent2); }
+  .kpi.blue::before   { background: var(--accent3); }
+  .kpi.yellow::before { background: #f5c542; }
+  .kpi-label { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+  .kpi-value { font-size: 2rem; font-weight: 800; line-height: 1; }
+  .kpi-value.green  { color: var(--accent); }
+  .kpi-value.red    { color: var(--accent2); }
+  .kpi-value.blue   { color: var(--accent3); }
+  .kpi-value.yellow { color: #f5c542; }
+  .kpi-sub { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: var(--mono); }
+
+  /* ── Two column grid ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 2rem; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 2rem; }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.5rem;
+  }
+
+  /* ── Model metrics ── */
+  .model-stats { display: flex; gap: 1rem; margin-top: 1rem; }
+  .stat-pill {
+    flex: 1; text-align: center;
+    background: var(--surface); border-radius: 10px; padding: 10px 6px;
+  }
+  .stat-pill .val { font-size: 1.3rem; font-weight: 700; color: var(--accent); font-family: var(--mono); }
+  .stat-pill .lbl { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* ── Importance bars ── */
+  .imp-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .imp-label { font-size: 12px; color: var(--muted); width: 140px; flex-shrink: 0; text-align: right; font-family: var(--mono); }
+  .imp-track { flex: 1; height: 8px; background: var(--surface); border-radius: 4px; overflow: hidden; }
+  .imp-fill { height: 100%; border-radius: 4px; transition: width 1s cubic-bezier(.4,0,.2,1); }
+  .imp-pct { font-size: 11px; color: var(--text); width: 36px; font-family: var(--mono); }
+
+  /* ── Chart wrappers ── */
+  .chart-wrap { position: relative; width: 100%; height: 220px; }
+  .chart-wrap.tall { height: 260px; }
+
+  /* ── Correlation chips ── */
+  .corr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 0.5rem; }
+  .corr-chip {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface); border-radius: 8px; padding: 8px 12px;
+  }
+  .corr-name { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  .corr-val { font-size: 13px; font-weight: 700; font-family: var(--mono); }
+  .corr-val.pos { color: var(--accent); }
+  .corr-val.neg { color: var(--accent2); }
+
+  /* ── Divider ── */
+  .section-divider {
+    display: flex; align-items: center; gap: 16px;
+    margin: 2.5rem 0 1.5rem;
+  }
+  .section-divider h2 { margin: 0; }
+  .section-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── Prediction form ── */
+  .pred-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 20px;
+  }
+  .form-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label {
+    font-size: 11px; color: var(--muted); font-weight: 600;
+    letter-spacing: 0.07em; text-transform: uppercase;
+  }
+  .field input, .field select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: var(--mono); font-size: 13px;
+    outline: none; transition: border 0.2s;
+    width: 100%;
+  }
+  .field input:focus, .field select:focus { border-color: rgba(0,229,160,0.4); }
+  .field select option { background: var(--card); }
+
+  .slider-wrap { display: flex; align-items: center; gap: 10px; }
+  .slider-wrap input[type=range] {
+    flex: 1; padding: 0; border: none; background: none;
+    accent-color: var(--accent); cursor: pointer;
+  }
+  .slider-val { font-family: var(--mono); font-size: 13px; color: var(--accent); min-width: 34px; text-align: right; }
+
+  .btn-predict {
+    width: 100%; margin-top: 18px;
+    padding: 14px;
+    background: var(--accent); color: #0d0f14;
+    font-family: var(--font); font-size: 14px; font-weight: 700;
+    border: none; border-radius: 10px; cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s;
+    letter-spacing: 0.04em;
+  }
+  .btn-predict:hover { opacity: 0.88; }
+  .btn-predict:active { transform: scale(0.98); }
+
+  /* ── Result card ── */
+  .result-panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px; padding: 2rem 1.75rem;
+    display: flex; flex-direction: column; justify-content: center;
+    min-height: 340px; text-align: center;
+  }
+  .result-score {
+    font-size: 6rem; font-weight: 800; line-height: 1;
+    font-family: var(--mono);
+    transition: color 0.5s;
+  }
+  .result-score.good    { color: var(--accent); }
+  .result-score.medium  { color: #f5c542; }
+  .result-score.bad     { color: var(--accent2); }
+  .result-label { font-size: 13px; color: var(--muted); margin-top: 6px; letter-spacing: 0.06em; }
+  .result-risk {
+    display: inline-block; margin-top: 1.5rem;
+    padding: 6px 20px; border-radius: 999px;
+    font-size: 13px; font-weight: 700; letter-spacing: 0.05em;
+  }
+  .risk-low    { background: rgba(0,229,160,0.12); color: var(--accent);  border: 1px solid rgba(0,229,160,0.3); }
+  .risk-medium { background: rgba(245,197,66,0.12); color: #f5c542;       border: 1px solid rgba(245,197,66,0.3); }
+  .risk-high   { background: rgba(255,92,106,0.12); color: var(--accent2); border: 1px solid rgba(255,92,106,0.3); }
+  .result-bars { margin-top: 1.5rem; text-align: left; }
+  .mini-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .mini-bar-lbl { font-size: 11px; color: var(--muted); width: 100px; font-family: var(--mono); }
+  .mini-bar-track { flex: 1; height: 6px; background: var(--surface); border-radius: 3px; overflow: hidden; }
+  .mini-bar-fill { height: 100%; border-radius: 3px; background: var(--accent3); }
+  .mini-bar-val { font-size: 11px; color: var(--muted); font-family: var(--mono); width: 30px; }
+
+  .placeholder-msg {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 12px; height: 100%;
+    color: var(--muted);
+  }
+  .placeholder-msg .icon { font-size: 2.5rem; opacity: 0.4; }
+  .placeholder-msg p { font-size: 13px; max-width: 200px; line-height: 1.6; }
+
+  @media (max-width: 900px) {
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+    .two-col, .three-col, .pred-grid { grid-template-columns: 1fr; }
+    header { padding: 1rem 1.25rem; }
+    main { padding: 1.25rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Gaming<span>IQ</span></div>
+  <span class="badge-model">Gradient Boosting · 8 000 estudiantes</span>
+</header>
+
+<main>
+
+  <!-- KPIs -->
+  <div class="kpi-grid" id="kpiGrid"></div>
+
+  <!-- Row 1: Scatter + Importances -->
+  <div class="two-col">
+    <div class="panel">
+      <h2>Predicción vs. nota real</h2>
+      <div class="chart-wrap tall">
+        <canvas id="scatterChart" role="img" aria-label="Scatter plot predicción vs nota real"></canvas>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Importancia de variables</h2>
+      <div id="importanceBars" style="margin-top:0.5rem;"></div>
+    </div>
+  </div>
+
+  <!-- Row 2: Correlation + Dist + Model metrics -->
+  <div class="three-col">
+    <div class="panel">
+      <h2>Correlación con notas</h2>
+      <div class="corr-grid" id="corrGrid"></div>
+    </div>
+    <div class="panel">
+      <h2>Distribución de notas</h2>
+      <div class="chart-wrap">
+        <canvas id="histChart" role="img" aria-label="Histograma de distribución de notas"></canvas>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Métricas del modelo</h2>
+      <div style="margin-top:0.5rem;">
+        <p style="font-size:12px;color:var(--muted);line-height:1.6;">
+          Gradient Boosting entrenado con validación cruzada 5-fold. Supera a Regresión Lineal, Ridge, Lasso y Random Forest.
+        </p>
+        <div class="model-stats" id="modelStats"></div>
+        <div style="margin-top:1rem;">
+          <div class="chart-wrap" style="height:140px;">
+            <canvas id="modelComp" role="img" aria-label="Comparación R2 entre modelos"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Prediction section -->
+  <div class="section-divider">
+    <h2>Predictor de rendimiento</h2>
+  </div>
+
+  <div class="pred-grid">
+    <!-- Form -->
+    <div class="panel">
+      <h3>Datos del estudiante</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:1.25rem;">Ingresa las características para estimar la nota final.</p>
+      <div class="form-grid" id="formGrid"></div>
+      <button class="btn-predict" onclick="runPredict()">Predecir nota →</button>
+    </div>
+
+    <!-- Result -->
+    <div class="result-panel" id="resultPanel">
+      <div class="placeholder-msg">
+        <div class="icon">🎮</div>
+        <p>Ingresa los datos del estudiante y presiona <strong>Predecir</strong></p>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const D = {{ data|safe }};
+
+// ── KPIs ──────────────────────────────────────────────────────────────────
+const kpis = [
+  { label:'Estudiantes', val: D.n_students.toLocaleString(), cls:'green', sub:'en el dataset' },
+  { label:'Nota promedio', val: D.avg_grade, cls:'blue', sub:'sobre 100' },
+  { label:'Gaming promedio', val: D.avg_gaming + 'h', cls:'red', sub:'horas / día' },
+  { label:'Estudio promedio', val: D.avg_study + 'h', cls:'yellow', sub:'horas / día' },
+];
+document.getElementById('kpiGrid').innerHTML = kpis.map(k => `
+  <div class="kpi ${k.cls}">
+    <div class="kpi-label">${k.label}</div>
+    <div class="kpi-value ${k.cls}">${k.val}</div>
+    <div class="kpi-sub">${k.sub}</div>
+  </div>`).join('');
+
+// ── Scatter ───────────────────────────────────────────────────────────────
+new Chart(document.getElementById('scatterChart'), {
+  type: 'scatter',
+  data: {
+    datasets: [
+      { label:'Estudiantes', data: D.scatter,
+        backgroundColor: 'rgba(92,141,255,0.5)', pointRadius: 4 },
+      { label:'Ideal', data:[{x:0,y:0},{x:120,y:120}], type:'line',
+        borderColor:'rgba(0,229,160,0.4)', borderWidth:1.5,
+        borderDash:[5,4], pointRadius:0, fill:false }
+    ]
+  },
+  options: {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false}, tooltip:{ callbacks:{
+      label: c => `Real: ${c.parsed.x.toFixed(1)} · Pred: ${c.parsed.y.toFixed(1)}`
+    }}},
+    scales:{
+      x:{ min:0, max:120, title:{display:true,text:'Nota real',color:'#6b7280',font:{size:11}},
+          ticks:{color:'#6b7280',font:{size:10}}, grid:{color:'rgba(255,255,255,0.04)'} },
+      y:{ min:0, max:120, title:{display:true,text:'Predicha',color:'#6b7280',font:{size:11}},
+          ticks:{color:'#6b7280',font:{size:10}}, grid:{color:'rgba(255,255,255,0.04)'} }
+    }
+  }
+});
+
+// ── Importance bars ───────────────────────────────────────────────────────
+const impLabels = {
+  study_hours:'Horas de estudio', gaming_hours:'Horas de gaming',
+  sleep_hours:'Horas de sueño', attendance:'Asistencia',
+  addiction_score:'Addiction score', device_usage:'Uso de dispositivo',
+  reaction_time_ms:'Reaction time', gender_enc:'Género',
+  genre_enc:'Género gaming', stress_enc:'Estrés', age:'Edad'
+};
+const sorted = Object.entries(D.importances)
+  .sort((a,b) => b[1]-a[1]).slice(0,7);
+const maxImp = sorted[0][1];
+const colors = ['#00e5a0','#5c8dff','#f5c542','#ff5c6a','#c084fc','#fb923c','#34d399'];
+document.getElementById('importanceBars').innerHTML = sorted.map(([k,v],i) => `
+  <div class="imp-row">
+    <span class="imp-label">${impLabels[k]||k}</span>
+    <div class="imp-track"><div class="imp-fill" style="width:${(v/maxImp*100).toFixed(1)}%;background:${colors[i]};"></div></div>
+    <span class="imp-pct">${v.toFixed(1)}%</span>
+  </div>`).join('');
+
+// ── Correlations ──────────────────────────────────────────────────────────
+const corrLabels = {
+  study_hours:'study_hours', gaming_hours:'gaming_hours',
+  addiction_score:'addiction', device_usage:'device_usage',
+  reaction_time_ms:'reaction', sleep_hours:'sleep_hours'
+};
+document.getElementById('corrGrid').innerHTML = Object.entries(D.correlations).map(([k,v]) => `
+  <div class="corr-chip">
+    <span class="corr-name">${corrLabels[k]||k}</span>
+    <span class="corr-val ${v>=0?'pos':'neg'}">${v>0?'+':''}${v}</span>
+  </div>`).join('');
+
+// ── Histogram ─────────────────────────────────────────────────────────────
+const bins = Array.from({length:10},(_,i)=>i*10);
+const binLabels = bins.map(b=>`${b}–${b+10}`);
+const binCounts = new Array(10).fill(0);
+D.scatter.forEach(p => { const i=Math.min(Math.floor(p.x/10),9); binCounts[i]++; });
+new Chart(document.getElementById('histChart'), {
+  type:'bar',
+  data:{ labels:binLabels, datasets:[{
+    label:'Estudiantes', data:binCounts,
+    backgroundColor:'rgba(92,141,255,0.6)', borderRadius:4
+  }]},
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{ticks:{color:'#6b7280',font:{size:9},maxRotation:45}, grid:{display:false}},
+      y:{ticks:{color:'#6b7280',font:{size:10}}, grid:{color:'rgba(255,255,255,0.04)'}}
+    }
+  }
+});
+
+// ── Model comparison ──────────────────────────────────────────────────────
+document.getElementById('modelStats').innerHTML = [
+  {lbl:'R²', val:D.r2},{lbl:'RMSE', val:D.rmse},{lbl:'MAE', val:D.mae}
+].map(s=>`<div class="stat-pill"><div class="val">${s.val}</div><div class="lbl">${s.lbl}</div></div>`).join('');
+
+new Chart(document.getElementById('modelComp'), {
+  type:'bar',
+  data:{
+    labels:['Linear','Ridge','Lasso','R. Forest','Grad. Boost'],
+    datasets:[{ label:'R²', data:[0.910,0.910,0.902,0.928,0.933],
+      backgroundColor:['#6b7280','#6b7280','#6b7280','#6b7280','#00e5a0'],
+      borderRadius:4 }]
+  },
+  options:{
+    indexAxis:'y', responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{min:0.88, max:0.95, ticks:{color:'#6b7280',font:{size:9}}, grid:{color:'rgba(255,255,255,0.04)'}},
+      y:{ticks:{color:'#6b7280',font:{size:10}}, grid:{display:false}}
+    }
+  }
+});
+
+// ── Form ──────────────────────────────────────────────────────────────────
+const sliders = [
+  {id:'gaming_hours', label:'Horas de gaming / día', min:0, max:12, step:0.5, def:4},
+  {id:'study_hours',  label:'Horas de estudio / día', min:0, max:12, step:0.5, def:4},
+  {id:'sleep_hours',  label:'Horas de sueño / día', min:3, max:12, step:0.5, def:7},
+  {id:'attendance',   label:'Asistencia (%)', min:0, max:100, step:1, def:80},
+  {id:'social_activity', label:'Actividad social (h)', min:0, max:8, step:0.5, def:2},
+  {id:'device_usage', label:'Uso dispositivo (h)', min:0, max:16, step:0.5, def:4},
+  {id:'reaction_time_ms', label:'Tiempo reacción (ms)', min:100, max:600, step:10, def:300},
+  {id:'addiction_score',  label:'Addiction score', min:0, max:25, step:0.5, def:8},
+];
+
+const selects = [
+  {id:'age',         label:'Edad', opts: Array.from({length:9},(_,i)=>i+16)},
+  {id:'gender',      label:'Género', opts: D.genders},
+  {id:'gaming_genre',label:'Género de juego', opts: D.genres},
+  {id:'stress_level',label:'Nivel de estrés', opts: D.stress},
+];
+
+let formHTML = sliders.map(s => `
+  <div class="field">
+    <label>${s.label}</label>
+    <div class="slider-wrap">
+      <input type="range" id="${s.id}" min="${s.min}" max="${s.max}" step="${s.step}" value="${s.def}"
+        oninput="document.getElementById('v_${s.id}').textContent=this.value"/>
+      <span class="slider-val" id="v_${s.id}">${s.def}</span>
+    </div>
+  </div>`).join('');
+
+formHTML += selects.map(s => `
+  <div class="field">
+    <label>${s.label}</label>
+    <select id="${s.id}">
+      ${s.opts.map(o=>`<option value="${o}">${o}</option>`).join('')}
+    </select>
+  </div>`).join('');
+
+document.getElementById('formGrid').innerHTML = formHTML;
+
+// ── Predict ───────────────────────────────────────────────────────────────
+async function runPredict() {
+  const btn = document.querySelector('.btn-predict');
+  btn.textContent = 'Calculando…'; btn.disabled = true;
+
+  const body = {};
+  [...sliders, ...selects].forEach(f => { body[f.id] = document.getElementById(f.id).value; });
+
+  const res  = await fetch('/predict', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+  });
+  const data = await res.json();
+  btn.textContent = 'Predecir nota →'; btn.disabled = false;
+
+  if (data.error) { alert('Error: ' + data.error); return; }
+
+  const g = data.grade;
+  const cls = g >= 75 ? 'good' : g >= 50 ? 'medium' : 'bad';
+  const riskCls = { 'Bajo':'risk-low','Medio':'risk-medium','Alto':'risk-high' }[data.risk];
+
+  const gaming = parseFloat(body.gaming_hours);
+  const study  = parseFloat(body.study_hours);
+  const sleep  = parseFloat(body.sleep_hours);
+  const maxVal = Math.max(gaming, study, sleep, 1);
+
+  document.getElementById('resultPanel').innerHTML = `
+    <div>
+      <div style="font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;">Nota estimada</div>
+      <div class="result-score ${cls}">${g.toFixed(1)}</div>
+      <div class="result-label">puntos sobre 100</div>
+      <div><span class="result-risk ${riskCls}">Riesgo académico: ${data.risk}</span></div>
+      <div class="result-bars">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;margin-top:1.25rem;text-transform:uppercase;letter-spacing:.07em;">Perfil del estudiante</div>
+        <div class="mini-bar-row">
+          <span class="mini-bar-lbl">Gaming</span>
+          <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${(gaming/12*100).toFixed()}%;background:#ff5c6a;"></div></div>
+          <span class="mini-bar-val">${gaming}h</span>
+        </div>
+        <div class="mini-bar-row">
+          <span class="mini-bar-lbl">Estudio</span>
+          <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${(study/12*100).toFixed()}%;background:#00e5a0;"></div></div>
+          <span class="mini-bar-val">${study}h</span>
+        </div>
+        <div class="mini-bar-row">
+          <span class="mini-bar-lbl">Sueño</span>
+          <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${(sleep/12*100).toFixed()}%;background:#5c8dff;"></div></div>
+          <span class="mini-bar-val">${sleep}h</span>
+        </div>
+      </div>
+    </div>`;
+}
+</script>
+</body>
+</html>
